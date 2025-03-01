@@ -1,0 +1,31 @@
+upstreams:
+  groups:
+    default:
+{% for upstream in blocky_upstreams %}
+      - {{ upstream }}
+{% endfor %}
+blocking:
+  denylists:
+    ads:
+{% for adlist in blocky_adlists %}
+     - {{ adlist }}
+{% endfor %}
+    security:
+{% for seclist in blocky_security_lists %}
+     - {{ seclist }}
+{% endfor %}
+  clientGroupsBlock:
+    default:
+      - ads
+      - security
+customDNS:
+  customTTL: 1h
+  filterUnmappedTypes: false
+  mapping:
+{% for custom_record in blocky_custom_records %}
+    {{ custom_record.domain }}: {{ custom_record.address }}
+{% endfor %}
+
+ports:
+  dns: 53
+  http: 4000

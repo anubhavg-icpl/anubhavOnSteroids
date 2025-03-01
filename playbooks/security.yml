@@ -1,0 +1,346 @@
+- name: Configure security virtual machine
+  hosts: security
+  vars:
+    security_user: security
+    security_network: security
+    podman_user: '{{ security_user }}'
+
+    security_keycloak_pg_pass: !vault |
+      $ANSIBLE_VAULT;1.1;AES256
+      34623238643730623933356136663966326437333764343138313661383733393837326336376162
+      3165623636366538653037343839313835376138616336620a353638633138643535316664626232
+      33653234373836303139346238643336653139646663626636613766636465313463666536313730
+      3266623763376635370a386135663562613737663431336464663666363839356235633939626330
+      6561
+    security_keycloak_admin_user: !vault |
+      $ANSIBLE_VAULT;1.1;AES256
+      31636265363930343931613234333463333837653765333633336132663035313036383761616630
+      6637393066343333626236383066366136343863353963310a633330313065363534633661373730
+      38643361316332656433326262656464636130323132303237616639306466653837633133353831
+      6533373938626333380a363132343063366230353736383766633436353338656364633535363162
+      3863
+    security_keycloak_admin_password: !vault |
+      $ANSIBLE_VAULT;1.1;AES256
+      30613837336139366632376265353233353532633765363632373063393162343037343833343037
+      3364363865346164663537346537396637666563336139310a316463623463373333613864396631
+      30376566326439353732653334303437343837643664346634373735343565356132643230323434
+      6436636335386631310a323835636630353865313832303862633366326463663439646630383362
+      3562
+
+    security_wazuh_certs: '/var/wazuh'
+    security_wazuh_generator_conf: '/var/wazuh_generator'
+
+  tasks:
+    - name: Ensure there's a virtual network for Keycloak
+      ansible.builtin.import_role:
+        name: podman
+        tasks_from: network
+      vars:
+        podman_network: '{{ security_network }}'
+        podman_user: '{{ security_user }}'
+
+    - name: Deploy Postgres for Keycloak
+      ansible.builtin.import_role:
+        name: postgres
+      vars:
+        postgres_podman_user: '{{ security_user }}'
+        postgres_container: postgres
+        postgres_data_vol: 'postgres_keycloak'
+        postgres_db: keycloak
+        postgres_user: keycloak
+        postgres_network: '{{ security_network }}'
+        postgres_pass: '{{ security_keycloak_pg_pass }}'
+
+    - name: Deploy Keycloak
+      ansible.builtin.import_role:
+        name: keycloak
+      vars:
+        keycloak_user: '{{ security_user }}'
+        keycloak_container: keycloak
+        keycloak_network: '{{ security_network }}'
+        keycloak_pg_pass: '{{ security_keycloak_pg_pass }}'
+        # keycloak_bootstrap_username:
+        # keycloak_bootstrap_password:
+
+    - name: Deploy Vaultwarden
+      ansible.builtin.import_role:
+        name: vaultwarden
+      vars:
+        vaultwarden_container: vaultwarden
+        vaultwarden_user: '{{ security_user }}'
+        vaultwarden_data: 'vaultwarden'
+        vaultwarden_admin_token: !vault |
+          $ANSIBLE_VAULT;1.1;AES256
+          62333933613636626334633735643234373361643037303733353264663733363234396261343332
+          6333656663366337663236633437303832643165303361330a356163613365633131363662323235
+          33373233656437303835306231623065613133363263323334643839363161633030333034376563
+          3830386264633761310a653065356265356334343831336132343366333932646534326663376235
+          36656634623663356266343131666236666638383865373366323266623237366363356431336233
+          36616664613965386563623064663030636137363365666139353036383134656639383136623835
+          31363662613932623136646332383738663433376634363637333533333466383538323832613638
+          35656232303366366331
+        vaultwarden_signups_allowed: 'false'
+        vaultwarden_host: '{{ password_mgr_host }}'
+
+    - name: Generate Wazuh certificates
+      ansible.builtin.import_role:
+        name: wazuh_indexer
+        tasks_from: generate_certs
+      vars:
+        wazuh_indexer_user: '{{ security_user }}'
+        wazuh_indexer_group: '{{ security_user }}'
+        wazuh_indexer_tls_dir: '{{ security_wazuh_certs }}'
+        wazuh_indexer_host: 'wazuh.indexer'
+        wazuh_indexer_manager_host: 'wazuh.manager'
+        wazuh_indexer_dashboard_host: 'wazuh.dashboard'
+        wazuh_indexer_tls_conf_dir: '{{ security_wazuh_generator_conf }}'
+
+    - name: Deploy Wazuh indexer
+      ansible.builtin.import_role:
+        name: wazuh_indexer
+      vars:
+        wazuh_indexer_user: '{{ security_user }}'
+        wazuh_indexer_container: 'wazuh_indexer'
+        wazuh_indexer_admin_hash: '$2y$12$PFQeLaOF/IlLbEmdGxX9R.Q1WJEkVmkvEAYQFjhb48ISHwAV1VAui'
+        wazuh_indexer_version: '4.10.1'
+        wazuh_indexer_hostname: 'wazuh.indexer'
+        wazuh_indexer_network: '{{ security_network }}'
+        wazuh_indexer_data_vol: 'wazuh_indexer'
+        wazuh_indexer_tls_dir: '{{ security_wazuh_certs }}'
+        wazuh_indexer_config_dir: '/var/wazuh_indexer'
+        wazuh_indexer_port: '9200'
+        wazuh_indexer_node_name: 'wazuh.indexer'
+        wazuh_indexer_cluster_name: 'wazuh-cluster'
+        wazuh_indexer_cluster_initial_master_node: 'wazuh.indexer'
+
+    - name: Deploy Wazuh manager
+      ansible.builtin.import_role:
+        name: wazuh_manager
+      vars:
+        wazuh_manager_user: '{{ security_user }}'
+        wazuh_manager_container: 'wazuh_manager'
+        wazuh_manager_network: '{{ security_network }}'
+        wazuh_manager_hostname: 'wazuh.manager'
+        wazuh_manager_agent: '1514'
+        wazuh_manager_enrollment: '1515'
+        wazuh_manager_authd_password: '{{ siem_enrollment_pass }}'
+        wazuh_manager_syslog: '514'
+        wazuh_manager_api: '55000'
+        wazuh_manager_version: '4.10.1'
+        wazuh_manager_api_configuration_vol: 'wazuh_manager_conf'
+        wazuh_manager_etc_vol: 'wazuh_manager_etc'
+        wazuh_manager_logs_vol: 'wazuh_manager_logs'
+        wazuh_manager_queue_vol: 'wazuh_manager_queue'
+        wazuh_manager_var_multigroups_vol: 'wazuh_manager_var_multigroups'
+        wazuh_manager_integrations_vol: 'wazuh_manager_integrations'
+        wazuh_manager_active_response_vol: 'wazuh_manager_active_response'
+        wazuh_manager_agentless_vol: 'wazuh_manager_agentless'
+        wazuh_manager_wodles_vol: 'wazuh_manager_wodles'
+        wazuh_manager_filebeat_etc_vol: 'wazuh_manager_filebeat_etc'
+        wazuh_manager_filebeat_var_vol: 'wazuh_manager_filebeat_var'
+        wazuh_manager_ssl_certs_dir: '{{ security_wazuh_certs }}'
+        wazuh_manager_config_dir: '/var/wazuh_manager'
+        wazuh_manager_indexer_host: 'wazuh.indexer'
+        wazuh_manager_indexer_port: '9200'
+        wazuh_manager_indexer_username: 'admin'
+        wazuh_manager_indexer_password: !vault |
+          $ANSIBLE_VAULT;1.1;AES256
+          37653335646362666438386235303265616231653264633630323638346363383439336334613830
+          3532393131333237643364653066376563386337373737310a656464613135386166336366333261
+          61646166303636393137373437316639623932376537343338353036393734356631353531633237
+          3038653332346566350a373566366163343732363263653935626531326566356437653532356638
+          3832
+        wazuh_manager_api_username: !vault |
+          $ANSIBLE_VAULT;1.1;AES256
+          32353235636634353461663335653263373766626664623861623137643536666336663561383462
+          6361633932623232643231396266336138393966636234310a363137386133626135336530633433
+          63623365303866663438623463303536613832623638616661343663313731373462316232666464
+          3836633366656433610a343031383261616562626432303230393363663234633434633136633131
+          3631
+        wazuh_manager_api_password: !vault |
+          $ANSIBLE_VAULT;1.1;AES256
+          39353361343538626337383866653139323338306335653965643063356336623737333636663265
+          3731633536386635623064366432303731636331313364660a313664366334373432356465623535
+          32383532643362313830653033393234326531353238653832363965643639653465653634393264
+          3163373065333763640a626362316461376331366234623137316363343138396162643265353531
+          32383266613039643463663639396330633264396135616631393461663765313638
+
+    - name: Deploy Wazuh Dashboard
+      ansible.builtin.import_role:
+        name: wazuh_dashboard
+      vars:
+        wazuh_dashboard_user: '{{ security_user }}'
+        wazuh_dashboard_version: '4.10.1'
+        wazuh_dashboard_container: 'wazuh_dashboard'
+        wazuh_dashboard_hostname: 'wazuh.dashboard'
+        wazuh_dashboard_network: '{{ security_network }}'
+        wazuh_dashboard_https: '5601'
+        wazuh_dashboard_api_config_vol: 'wazuh_dashboard_api_conf'
+        wazuh_dashboard_custom_vol: 'wazuh_dashboard_custom'
+        wazuh_dashboard_ssl_certs_dir: '{{ security_wazuh_certs }}'
+        wazuh_dashboard_config_dir: '/var/wazuh_dashboard'
+        wazuh_dashboard_manager_host: 'wazuh.manager'
+        wazuh_dashboard_manager_user: !vault |
+          $ANSIBLE_VAULT;1.1;AES256
+          32353235636634353461663335653263373766626664623861623137643536666336663561383462
+          6361633932623232643231396266336138393966636234310a363137386133626135336530633433
+          63623365303866663438623463303536613832623638616661343663313731373462316232666464
+          3836633366656433610a343031383261616562626432303230393363663234633434633136633131
+          3631
+        wazuh_dashboard_manager_pass: !vault |
+          $ANSIBLE_VAULT;1.1;AES256
+          39353361343538626337383866653139323338306335653965643063356336623737333636663265
+          3731633536386635623064366432303731636331313364660a313664366334373432356465623535
+          32383532643362313830653033393234326531353238653832363965643639653465653634393264
+          3163373065333763640a626362316461376331366234623137316363343138396162643265353531
+          32383266613039643463663639396330633264396135616631393461663765313638
+        wazuh_dashboard_indexer_username: 'admin'
+        wazuh_dashboard_indexer_password: !vault |
+          $ANSIBLE_VAULT;1.1;AES256
+          37653335646362666438386235303265616231653264633630323638346363383439336334613830
+          3532393131333237643364653066376563386337373737310a656464613135386166336366333261
+          61646166303636393137373437316639623932376537343338353036393734356631353531633237
+          3038653332346566350a373566366163343732363263653935626531326566356437653532356638
+          3832
+        wazuh_dashboard_username: 'admin'
+        wazuh_dashboard_password: !vault |
+          $ANSIBLE_VAULT;1.1;AES256
+          37653335646362666438386235303265616231653264633630323638346363383439336334613830
+          3532393131333237643364653066376563386337373737310a656464613135386166336366333261
+          61646166303636393137373437316639623932376537343338353036393734356631353531633237
+          3038653332346566350a373566366163343732363263653935626531326566356437653532356638
+          3832
+        wazuh_dashboard_api_url: 'https://wazuh.manager'
+        wazuh_dashboard_api_user: !vault |
+          $ANSIBLE_VAULT;1.1;AES256
+          32353235636634353461663335653263373766626664623861623137643536666336663561383462
+          6361633932623232643231396266336138393966636234310a363137386133626135336530633433
+          63623365303866663438623463303536613832623638616661343663313731373462316232666464
+          3836633366656433610a343031383261616562626432303230393363663234633434633136633131
+          3631
+        wazuh_dashboard_api_pass: !vault |
+          $ANSIBLE_VAULT;1.1;AES256
+          39353361343538626337383866653139323338306335653965643063356336623737333636663265
+          3731633536386635623064366432303731636331313364660a313664366334373432356465623535
+          32383532643362313830653033393234326531353238653832363965643639653465653634393264
+          3163373065333763640a626362316461376331366234623137316363343138396162643265353531
+          32383266613039643463663639396330633264396135616631393461663765313638
+
+    - name: Wait a minute for Keycloak to initialize
+      ansible.builtin.pause:
+        seconds: 60
+
+    - name: Ensure homelab Keycloak realm is configured
+      middleware_automation.keycloak.keycloak_realm:
+        auth_client_id: admin-cli
+        auth_keycloak_url: 'https://{{ auth_host }}.{{ internet_host }}'
+        auth_realm: master
+        auth_username: '{{ security_keycloak_admin_user }}'
+        auth_password: '{{ security_keycloak_admin_password }}'
+        registration_allowed: false
+        remember_me: true
+        verify_email: false
+        realm: '{{ homelab_realm }}'
+        enabled: true
+        id: !vault |
+          $ANSIBLE_VAULT;1.1;AES256
+          61333130633239303036376439316630306563633638643135326166656166386166623065346231
+          3466353261323264383666306661613833653563646430610a383861306366373439653362363739
+          33323564346461343165323036363764306537356632333835356431363565356133383364373662
+          3334663364623734300a376335666437366530653030656163386635383962306534303263363136
+          3636
+        display_name: !vault |
+          $ANSIBLE_VAULT;1.1;AES256
+          64313033653233323364373663386665396530393231323631346539306435313865396536666636
+          6431373864333239393963363961313064643730633130390a616664653533383330303636376437
+          32346665313466643939643835613731646661336465323735303032346535656439376636303131
+          6664323533613831390a333933306337613935343961366530616632663363643735386661636430
+          6436
+        state: present
+
+    - name: Ensure Code service is registered as a client
+      middleware_automation.keycloak.keycloak_client:
+        auth_client_id: admin-cli
+        auth_keycloak_url: 'https://{{ auth_host }}.{{ internet_host }}'
+        auth_realm: master
+        auth_username: '{{ security_keycloak_admin_user }}'
+        auth_password: '{{ security_keycloak_admin_password }}'
+        state: present
+        realm: '{{ homelab_realm }}'
+        client_id: '{{ code_client }}'
+        name: '{{ code_client }}'
+        description: 'Main Code App. To develop in general'
+        # base_url: 'https://{{ code_host }}.{{ internet_host }}'
+        enabled: true
+        client_authenticator_type: client-secret
+        secret: '{{ code_secret }}'
+        redirect_uris:
+          - 'https://{{ code_personal_host }}.{{ internet_host }}/*'
+          - 'https://{{ code_work_host }}.{{ internet_host }}/*'
+        bearer_only: false
+        consent_required: false
+        standard_flow_enabled: true
+        implicit_flow_enabled: false
+        direct_access_grants_enabled: false
+        service_accounts_enabled: false
+        authorization_services_enabled: false
+        public_client: false
+        frontchannel_logout: false
+        protocol: openid-connect
+        protocol_mappers:
+          - config:
+              included.client.audience: '{{ code_client }}'
+              access.token.claim: 'true'
+              id.token.claim: 'true'
+            name: '{{ code_client }}-audience'
+            protocol: openid-connect
+            protocolMapper: oidc-audience-mapper
+        full_scope_allowed: false
+        node_re_registration_timeout: -1
+        use_template_config: false
+        use_template_scope: false
+        use_template_mappers: false
+        always_display_in_console: true
+
+    - name: Ensure Remote service is registered as a client
+      middleware_automation.keycloak.keycloak_client:
+        auth_client_id: admin-cli
+        auth_keycloak_url: 'https://{{ auth_host }}.{{ internet_host }}'
+        auth_realm: master
+        auth_username: '{{ security_keycloak_admin_user }}'
+        auth_password: '{{ security_keycloak_admin_password }}'
+        state: present
+        realm: '{{ homelab_realm }}'
+        client_id: '{{ remote_client }}'
+        name: '{{ remote_client }}'
+        description: 'Remote access to homelab virtual machines'
+        base_url: 'https://{{ remote_host }}.{{ internet_host }}'
+        enabled: true
+        client_authenticator_type: client-secret
+        secret: '{{ remote_secret }}'
+        redirect_uris:
+          - 'https://{{ remote_host }}.{{ internet_host }}/*'
+        bearer_only: false
+        consent_required: false
+        standard_flow_enabled: true
+        implicit_flow_enabled: true
+        direct_access_grants_enabled: false
+        service_accounts_enabled: false
+        authorization_services_enabled: false
+        public_client: false
+        frontchannel_logout: false
+        protocol: openid-connect
+        protocol_mappers:
+          - config:
+              included.client.audience: '{{ remote_client }}'
+              access.token.claim: 'true'
+              id.token.claim: 'true'
+            name: '{{ remote_client }}-audience'
+            protocol: openid-connect
+            protocolMapper: oidc-audience-mapper
+        full_scope_allowed: false
+        node_re_registration_timeout: -1
+        use_template_config: false
+        use_template_scope: false
+        use_template_mappers: false
+        always_display_in_console: true

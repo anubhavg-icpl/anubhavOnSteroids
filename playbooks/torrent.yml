@@ -1,0 +1,35 @@
+- name: Configure torrenting virtual machine
+  hosts: torrent
+  vars:
+    torrent_user: torrent
+    torrent_downloads: /var/torrents
+
+  tasks:
+    - name: NFS volumes configuration
+      ansible.builtin.import_role:
+        name: nfs_client
+      vars:
+        nfs_client_user: "{{ torrent_user }}"
+        nfs_client_mounts:
+          { "{{ nas_host }}:{{ nfs_server_data }}/torrents": "{{ torrent_downloads }}" }
+
+    - name: Deploy Qbittorrent
+      ansible.builtin.import_role:
+        name: qbittorrent
+      vars:
+        qbittorrent_user: "{{ torrent_user }}"
+        qbittorrent_container: qbittorrent
+        qbittorrent_data: 'qbittorrent_data'
+        qbittorrent_downloads: "{{ torrent_downloads }}"
+        qbittorrent_http_port: '8080'
+        qbittorrent_torrenting_port: '6881'
+
+    - name: Deploy Wazuh agent
+      ansible.builtin.import_role:
+        name: wazuh_agent
+      vars:
+        wazuh_agent_version: '4.x'
+        wazuh_agent_manager_host: '{{ siem_host }}'
+        wazuh_agent_registration_pass: '{{ siem_enrollment_pass }}'
+        wazuh_agent_name: 'torrent'
+        wazuh_agent_groups: 'untrusted,high_risk'

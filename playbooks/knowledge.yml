@@ -1,0 +1,52 @@
+- name: Configure knowledge virtual machine
+  hosts: knowledge
+  vars:
+    knowledge_user: knowledge
+    knowledge_network: knowledge
+    knowledge_data: /var/knowledge
+    knowledge_wikijs_pgpass: !vault |
+          $ANSIBLE_VAULT;1.1;AES256
+          63373736386531633766656338333237623665636535333935343763333333336561633465333434
+          6233373331323934343763306461393432626238623161660a623136313531356433393636363362
+          62663734316366653966323565326338663064353832353261356234643265346239343764636265
+          3934366432656434630a613936373031663164643837363436643864616664373737643661613432
+          3333
+  tasks:
+    - name: NFS volumes configuration
+      ansible.builtin.import_role:
+        name: nfs_client
+      vars:
+        nfs_client_user: "{{ knowledge_user }}"
+        nfs_client_mounts: {
+          "{{nas_host}}:{{ nfs_server_data }}/knowledge": "{{ knowledge_data }}"
+        }
+
+    - name: Ensure there's a virtual network for knowledge
+      ansible.builtin.import_role:
+        name: podman
+        tasks_from: network
+      vars:
+        podman_user: "{{ knowledge_user }}"
+        podman_network: "{{ knowledge_network }}"
+
+    - name: Deploy Postgres for WikiJS
+      ansible.builtin.import_role:
+        name: postgres
+      vars:
+        postgres_podman_user: "{{ knowledge_user }}"
+        postgres_container: postgres
+        postgres_data_dir: "{{ knowledge_data }}"
+        # postgres_data_vol: knowledge
+        postgres_db: wikijs
+        postgres_user: wikijs
+        postgres_network: "{{ knowledge_network }}"
+        postgres_pass: "{{ knowledge_wikijs_pgpass }}"
+
+    - name: Deploy WikiJS
+      ansible.builtin.import_role:
+        name: wikijs
+      vars:
+        wikijs_user: "{{ knowledge_user }}"
+        wikijs_container: wikijs
+        wikijs_network: "{{ knowledge_network }}"
+        wikijs_db_pass: "{{ knowledge_wikijs_pgpass }}"

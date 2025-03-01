@@ -1,0 +1,12 @@
+[Unit]
+Description=OpenRGB Server Service
+After=network.target
+
+[Service]
+User=root
+ExecStart={{ openrgb_install_path }}/{{ openrgb_executable }} --server --config {{ openrgb_config }}
+Restart=on-failure
+RestartSec=10
+
+[Install]
+WantedBy=multi-user.target

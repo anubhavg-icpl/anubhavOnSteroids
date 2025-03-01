@@ -1,0 +1,29 @@
+- name: Configure reverse proxy
+  hosts: reverse_proxy
+  tasks:
+    - name: Deploy Caddy
+      ansible.builtin.import_role:
+        name: caddy
+      vars:
+        caddy_user: '{{ reverse_proxy_user }}'
+        caddy_lan_prefix: '{{ lan_prefix }}'
+        caddy_internet_host: '{{ internet_host }}'
+        caddy_services: "{{ homelab_services | dict2items  | map(attribute='value') | list }}"
+        caddy_container: caddy
+        caddy_opt: caddy_opt
+        caddy_tls: caddy_tls
+        caddy_conf: /etc/Caddyfile
+        caddy_internet_facing: false
+        caddy_networks: 'host'
+        caddy_image: 'caddy-private'
+        caddy_extensions:
+          - github.com/caddy-dns/cloudflare
+          - github.com/corazawaf/coraza-caddy/v2
+        caddy_cloudflare_token: !vault |
+          $ANSIBLE_VAULT;1.1;AES256
+          30383031646136366238343335666164363934646564663434643131323861336362616238303735
+          3730356635333337623830353965653831616362646634660a666230376330633166653937386664
+          33363938383431333364386663663465303730333261386531666635306135373732303263313437
+          6562353139353534390a656563373730616431316638363439363364333465623336396336626232
+          38356164656137626662653435363739366136646266653164303433313739636166373338613866
+          3166643262633138316233396335343337333530346631613134

@@ -1,0 +1,69 @@
+- name: Configure servarr
+  hosts: servarr
+  vars:
+    servarr_user: servarr
+    servarr_downloads: /var/downloads
+    servarr_music: /var/music
+
+  tasks:
+    - name: NFS volumes configuration
+      ansible.builtin.import_role:
+        name: nfs_client
+      vars:
+        nfs_client_user: '{{ servarr_user }}'
+        nfs_client_mounts:
+          {
+            '{{nas_host}}:{{ nfs_server_data }}/torrents': '{{ servarr_downloads }}',
+            '{{nas_host}}:{{ nfs_server_data }}/music': '{{ servarr_music }}',
+          }
+
+    - name: Deploy tdarr
+      ansible.builtin.import_role:
+        name: tdarr
+      vars:
+        tdarr_user: '{{ servarr_user }}'
+        tdarr_container: tdarr
+        tdarr_http_port: 8265
+        tdarr_server_port: 8266
+        tdarr_data: tdarr_data
+        tdarr_cache: tdarr_cache
+        tdarr_library: '{{ servarr_music }}'
+        tdarr_server: tdarr_server
+
+    - name: Deploy Flaresolverr
+      ansible.builtin.import_role:
+        name: flaresolverr
+      vars:
+        flaresolverr_user: '{{ servarr_user }}'
+        flaresolverr_container: flaresolverr
+        flaresolverr_http_port: 8191
+
+    - name: Deploy Prowlarr
+      ansible.builtin.import_role:
+        name: prowlarr
+      vars:
+        prowlarr_user: '{{ servarr_user }}'
+        prowlarr_container: prowlarr
+        prowlarr_config: prowlarr_data
+        prowlarr_http_port: 9696
+
+    - name: Deploy Lidarr
+      ansible.builtin.import_role:
+        name: lidarr
+      vars:
+        lidarr_user: '{{ servarr_user }}'
+        lidarr_container: lidarr
+        lidarr_config: lidarr_data
+        lidarr_collection: '{{ servarr_music }}'
+        lidarr_downloads: '{{ servarr_downloads }}'
+        lidarr_http_port: 8686
+
+    - name: Deploy Wazuh agent
+      ansible.builtin.import_role:
+        name: wazuh_agent
+      vars:
+        wazuh_agent_version: '4.x'
+        wazuh_agent_manager_host: '{{ siem_host }}'
+        wazuh_agent_registration_pass: '{{ siem_enrollment_pass }}'
+        wazuh_agent_name: 'servarr'
+        wazuh_agent_groups: 'high_risk'

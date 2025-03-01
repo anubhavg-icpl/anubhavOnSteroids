@@ -1,0 +1,8 @@
+---
+- name: Ensure there's a volume named {{ podman_local_volume }}
+  become: true
+  become_user: '{{ podman_user }}'
+  containers.podman.podman_volume:
+    state: present
+    name: '{{ podman_local_volume }}'
+    driver: local
