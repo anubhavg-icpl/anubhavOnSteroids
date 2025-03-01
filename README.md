@@ -1,6 +1,6 @@
 # anubhavOnSteroids
 
-This repository provides an Ansible-based infrastructure configuration and deployment system. It is divided into multiple Ansible roles and playbooks that manage tasks on virtual machines, containers, and services within a homelab environment. Each role focuses on performing a specific series of tasks (e.g., installing tools, configuring networks, mounting NFS shares, or deploying containerized services) while the playbooks bring these roles together to configure entire systems.
+This repository provides an Ansible-based infrastructure configuration and deployment system. It is divided into multiple Ansible roles and playbooks that manage tasks on virtual machines, containers, and services within a anubhavg environment. Each role focuses on performing a specific series of tasks (e.g., installing tools, configuring networks, mounting NFS shares, or deploying containerized services) while the playbooks bring these roles together to configure entire systems.
 
 ## Highlights
 

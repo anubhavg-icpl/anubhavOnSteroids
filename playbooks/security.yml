@@ -149,7 +149,7 @@
       ansible.builtin.pause:
         seconds: 60
 
-    - name: Ensure homelab Keycloak realm is configured
+    - name: Ensure anubhavg Keycloak realm is configured
       middleware_automation.keycloak.keycloak_realm:
         auth_client_id: admin-cli
         auth_keycloak_url: 'https://{{ auth_host }}.{{ internet_host }}'
@@ -159,22 +159,10 @@
         registration_allowed: false
         remember_me: true
         verify_email: false
-        realm: '{{ homelab_realm }}'
+        realm: '{{ anubhavg_realm }}'
         enabled: true
-        id: !vault |
-          $ANSIBLE_VAULT;1.1;AES256
-          61333130633239303036376439316630306563633638643135326166656166386166623065346231
-          3466353261323264383666306661613833653563646430610a383861306366373439653362363739
-          33323564346461343165323036363764306537356632333835356431363565356133383364373662
-          3334663364623734300a376335666437366530653030656163386635383962306534303263363136
-          3636
-        display_name: !vault |
-          $ANSIBLE_VAULT;1.1;AES256
-          64313033653233323364373663386665396530393231323631346539306435313865396536666636
-          6431373864333239393963363961313064643730633130390a616664653533383330303636376437
-          32346665313466643939643835613731646661336465323735303032346535656439376636303131
-          6664323533613831390a333933306337613935343961366530616632663363643735386661636430
-          6436
+        id: 'anubhavg-realm-id-123'  # replaced vault
+        display_name: 'anubhavg Authentication'  # replaced vault
         state: present
 
     - name: Ensure Code service is registered as a client
@@ -185,7 +173,7 @@
         auth_username: '{{ security_keycloak_admin_user }}'
         auth_password: '{{ security_keycloak_admin_password }}'
         state: present
-        realm: '{{ homelab_realm }}'
+        realm: '{{ anubhavg_realm }}'
         client_id: '{{ code_client }}'
         name: '{{ code_client }}'
         description: 'Main Code App. To develop in general'
@@ -229,10 +217,10 @@
         auth_username: '{{ security_keycloak_admin_user }}'
         auth_password: '{{ security_keycloak_admin_password }}'
         state: present
-        realm: '{{ homelab_realm }}'
+        realm: '{{ anubhavg_realm }}'
         client_id: '{{ remote_client }}'
         name: '{{ remote_client }}'
-        description: 'Remote access to homelab virtual machines'
+        description: 'Remote access to anubhavg virtual machines'
         base_url: 'https://{{ remote_host }}.{{ internet_host }}'
         enabled: true
         client_authenticator_type: client-secret

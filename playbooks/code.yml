@@ -72,11 +72,11 @@
         oauth2_proxy_cookie_secret: 'OAUTH_Cookie#kL7$mN4vR9@bP5&xQ8wY3'
         oauth2_proxy_whitelist_domains: "['.{{ internet_host }}']"
         oauth2_proxy_cookie_domains: "['.{{ internet_host }}']"
-        oauth2_proxy_provider: '{{ homelab_oidc_provider }}'
+        oauth2_proxy_provider: '{{ anubhavg_oidc_provider }}'
         oauth2_proxy_client_id: '{{ code_client }}'
         oauth2_proxy_client_secret: '{{ code_secret }}'
         oauth2_proxy_redirect_url: 'https://{{ code_work_host }}.{{ internet_host }}/oauth2/callback'
-        oauth2_proxy_oidc_url: 'https://{{ auth_host }}.{{ internet_host }}/realms/{{ homelab_realm }}'
+        oauth2_proxy_oidc_url: 'https://{{ auth_host }}.{{ internet_host }}/realms/{{ anubhavg_realm }}'
         oauth2_proxy_allow_unverified_email: 'true'
 
     - name: Deploy oauth2_proxy for personal code_server
@@ -91,11 +91,11 @@
         oauth2_proxy_cookie_secret: 'OAUTH_Cookie#kL7$mN4vR9@bP5&xQ8wY3'
         oauth2_proxy_whitelist_domains: "['.{{ internet_host }}']"
         oauth2_proxy_cookie_domains: "['.{{ internet_host }}']"
-        oauth2_proxy_provider: '{{ homelab_oidc_provider }}'
+        oauth2_proxy_provider: '{{ anubhavg_oidc_provider }}'
         oauth2_proxy_client_id: '{{ code_client }}'
         oauth2_proxy_client_secret: '{{ code_secret }}'
         oauth2_proxy_redirect_url: 'https://{{ code_personal_host }}.{{ internet_host }}/oauth2/callback'
-        oauth2_proxy_oidc_url: 'https://{{ auth_host }}.{{ internet_host }}/realms/{{ homelab_realm }}'
+        oauth2_proxy_oidc_url: 'https://{{ auth_host }}.{{ internet_host }}/realms/{{ anubhavg_realm }}'
         oauth2_proxy_allow_unverified_email: 'true'
 
     - name: Deploy Wazuh agent

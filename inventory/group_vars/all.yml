@@ -5,7 +5,7 @@ tz: 'America/Bogota'
 # Public internet hosts
 
 public_ip: '192.168.1.100'
-internet_host: 'example.homelab.local'
+internet_host: 'example.anubhavg.local'
 
 auth_host: auth
 
@@ -23,8 +23,8 @@ music_host: music
 # Private reverse proxy address
 private_reverse_proxy: '10.0.4.10'
 
-# Homelab services definition
-homelab_services:
+# anubhavg services definition
+anubhavg_services:
   auth:
     name: 'Authentication and SSO'
     host: 'auth'
@@ -90,9 +90,9 @@ siem_enrollment_pass: 'SIEM_Enroll#kM9$pL5vR2@bN6&xJ4mQ8'
 
 # OIDC
 
-homelab_realm: 'homelab'
+anubhavg_realm: 'anubhavg'
 
-homelab_oidc_provider: keycloak-oidc
+anubhavg_oidc_provider: keycloak-oidc
 
 code_client: 'code-server-client'
 code_secret: 'CODE_Secret#nP7$mK4vL8@bR3&xQ9wZ5'
