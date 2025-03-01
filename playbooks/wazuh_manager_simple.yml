@@ -1,0 +1,36 @@
+---
+- name: Deploy Wazuh Manager Container
+  hosts: wazuh_manager
+  vars:
+    wazuh_manager_version: '4.10.1'
+    
+  tasks:
+    - name: Ensure wazuh network exists
+      ansible.builtin.import_role:
+        name: podman
+        tasks_from: network
+      vars:
+        podman_network: '{{ wazuh_network }}'
+        podman_user: '{{ wazuh_user }}'
+
+    - name: Deploy Wazuh manager
+      ansible.builtin.import_role:
+        name: wazuh_manager
+      vars:
+        wazuh_manager_user: '{{ wazuh_user }}'
+        wazuh_manager_container: 'wazuh_manager'
+        wazuh_manager_network: '{{ wazuh_network }}'
+        wazuh_manager_hostname: 'wazuh.manager'
+        wazuh_manager_version: '{{ wazuh_manager_version }}'
+        wazuh_manager_api_configuration_vol: 'wazuh_manager_conf'
+        wazuh_manager_etc_vol: 'wazuh_manager_etc'
+        wazuh_manager_logs_vol: 'wazuh_manager_logs'
+        wazuh_manager_queue_vol: 'wazuh_manager_queue'
+        wazuh_manager_var_multigroups_vol: 'wazuh_manager_var_multigroups'
+        wazuh_manager_active_response_vol: 'wazuh_manager_active_response'
+        wazuh_manager_agentless_vol: 'wazuh_manager_agentless'
+        wazuh_manager_wodles_vol: 'wazuh_manager_wodles'
+        wazuh_manager_filebeat_etc_vol: 'wazuh_manager_filebeat_etc'
+        wazuh_manager_filebeat_var_vol: 'wazuh_manager_filebeat_var'
+        wazuh_manager_ssl_certs_dir: '{{ wazuh_certs_dir }}'
+        wazuh_manager_config_dir: '/var/wazuh_manager'

@@ -1,0 +1,80 @@
+---
+- name: Deploy Wazuh Cluster
+  hosts: wazuh_cluster
+  vars:
+    wazuh_manager_version: '4.10.1'
+    
+  tasks:
+    - name: Ensure wazuh network exists
+      ansible.builtin.import_role:
+        name: podman
+        tasks_from: network
+      vars:
+        podman_network: '{{ wazuh_network }}'
+        podman_user: '{{ wazuh_user }}'
+
+    - name: Deploy Wazuh master node
+      ansible.builtin.import_role:
+        name: wazuh_manager
+      vars:
+        wazuh_manager_user: '{{ wazuh_user }}'
+        wazuh_manager_container: 'wazuh-master'
+        wazuh_manager_network: '{{ wazuh_network }}'
+        wazuh_manager_hostname: '{{ wazuh_master_node }}'
+        wazuh_manager_version: '{{ wazuh_manager_version }}'
+        wazuh_manager_api_configuration_vol: 'wazuh_master_conf'
+        wazuh_manager_etc_vol: 'wazuh_master_etc'
+        wazuh_manager_logs_vol: 'wazuh_master_logs'
+        wazuh_manager_queue_vol: 'wazuh_master_queue'
+        wazuh_manager_var_multigroups_vol: 'wazuh_master_var_multigroups'
+        wazuh_manager_active_response_vol: 'wazuh_master_active_response'
+        wazuh_manager_agentless_vol: 'wazuh_master_agentless'
+        wazuh_manager_wodles_vol: 'wazuh_master_wodles'
+        wazuh_manager_ssl_certs_dir: '{{ wazuh_certs_dir }}'
+        wazuh_manager_config_dir: '/var/wazuh_master'
+        wazuh_manager_cluster_config:
+          name: wazuh-cluster
+          node_name: master
+          node_type: master
+          key: "{{ wazuh_cluster_key }}"
+          port: 1516
+          bind_addr: 0.0.0.0
+          nodes:
+            - "{{ wazuh_master_node }}"
+            "{% for worker in wazuh_worker_nodes %}"
+            - "{{ worker.name }}"
+            "{% endfor %}"
+          hidden: 'no'
+          disabled: 'no'
+
+    - name: Deploy Wazuh worker nodes
+      ansible.builtin.import_role:
+        name: wazuh_manager
+      vars:
+        wazuh_manager_user: '{{ wazuh_user }}'
+        wazuh_manager_container: 'wazuh-worker{{ item.0 + 1 }}'
+        wazuh_manager_network: '{{ wazuh_network }}'
+        wazuh_manager_hostname: '{{ item.1.name }}'
+        wazuh_manager_version: '{{ wazuh_manager_version }}'
+        wazuh_manager_api_configuration_vol: 'wazuh_worker{{ item.0 + 1 }}_conf'
+        wazuh_manager_etc_vol: 'wazuh_worker{{ item.0 + 1 }}_etc'
+        wazuh_manager_logs_vol: 'wazuh_worker{{ item.0 + 1 }}_logs'
+        wazuh_manager_queue_vol: 'wazuh_worker{{ item.0 + 1 }}_queue'
+        wazuh_manager_var_multigroups_vol: 'wazuh_worker{{ item.0 + 1 }}_var_multigroups'
+        wazuh_manager_active_response_vol: 'wazuh_worker{{ item.0 + 1 }}_active_response'
+        wazuh_manager_agentless_vol: 'wazuh_worker{{ item.0 + 1 }}_agentless'
+        wazuh_manager_wodles_vol: 'wazuh_worker{{ item.0 + 1 }}_wodles'
+        wazuh_manager_ssl_certs_dir: '{{ wazuh_certs_dir }}'
+        wazuh_manager_config_dir: '/var/wazuh_worker{{ item.0 + 1 }}'
+        wazuh_manager_cluster_config:
+          name: wazuh-cluster
+          node_name: "worker{{ item.0 + 1 }}"
+          node_type: worker
+          key: "{{ wazuh_cluster_key }}"
+          port: 1516
+          bind_addr: 0.0.0.0
+          nodes:
+            - "{{ wazuh_master_node }}"
+          hidden: 'no'
+          disabled: 'no'
+      loop: "{{ wazuh_worker_nodes | enumerate }}"

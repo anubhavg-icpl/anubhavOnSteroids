@@ -1,0 +1,23 @@
+---
+- name: Deploy Wazuh (Single or Cluster)
+  hosts: all
+  vars:
+    wazuh_manager_version: '4.10.1'
+    deployment_type: "{{ 'cluster' if 'wazuh_cluster' in group_names else 'single' }}"
+    
+  tasks:
+    - name: Ensure wazuh network exists
+      ansible.builtin.import_role:
+        name: podman
+        tasks_from: network
+      vars:
+        podman_network: '{{ wazuh_network }}'
+        podman_user: '{{ wazuh_user }}'
+
+    - name: Deploy single node setup
+      ansible.builtin.import_tasks: wazuh_manager_simple.yml
+      when: deployment_type == 'single'
+
+    - name: Deploy cluster setup
+      ansible.builtin.import_tasks: wazuh_cluster.yml
+      when: deployment_type == 'cluster'
