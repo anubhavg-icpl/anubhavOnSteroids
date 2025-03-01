@@ -21,7 +21,7 @@
         code_server_container: code-server-personal
         code_server_image: code-server-personal
         code_server_http_port: '8443'
-        code_server_sudo_pass: 'code'
+        code_server_sudo_pass: 'CODE_Sudo#nP5$mK8vL3@bR7&xQ4wY9'
         code_server_proxy_domain: '{{ code_personal_host }}.{{ internet_host }}'
         code_server_workspace: code_server_personal
         code_server_extra_pkgs:
@@ -46,7 +46,7 @@
         code_server_container: code-server-work
         code_server_image: code-server-work
         code_server_http_port: '8444'
-        code_server_sudo_pass: 'code'
+        code_server_sudo_pass: 'CODE_Sudo#nP5$mK8vL3@bR7&xQ4wY9'
         code_server_proxy_domain: '{{ code_work_host }}.{{ internet_host }}'
         code_server_workspace: code_server_work
         code_server_extra_pkgs:
@@ -69,14 +69,7 @@
         oauth2_proxy_port: '4180'
         oauth2_proxy_email_domains: '*'
         oauth2_proxy_reverse: 'true'
-        oauth2_proxy_cookie_secret: !vault |
-          $ANSIBLE_VAULT;1.1;AES256
-          38663139346433363432623437636534366163633561313734316635313230323562323064373533
-          6432396232366262343336666430636236623337343336370a633635653966393464393565343666
-          31316230613438643233303133613164366366393966313966616135386535633362396335633665
-          6236663663383732630a613466393661373663653862323138353737376432643764326264393037
-          63393534643034346333373135356263383736653837383838323663666138633362343134643062
-          3362373062366138636332383361333733623262343439396634
+        oauth2_proxy_cookie_secret: 'OAUTH_Cookie#kL7$mN4vR9@bP5&xQ8wY3'
         oauth2_proxy_whitelist_domains: "['.{{ internet_host }}']"
         oauth2_proxy_cookie_domains: "['.{{ internet_host }}']"
         oauth2_proxy_provider: '{{ homelab_oidc_provider }}'
@@ -95,14 +88,7 @@
         oauth2_proxy_port: '4181'
         oauth2_proxy_email_domains: '*'
         oauth2_proxy_reverse: 'true'
-        oauth2_proxy_cookie_secret: !vault |
-          $ANSIBLE_VAULT;1.1;AES256
-          39363133323666636231376538633262613731643433396435346337626131666230626366363662
-          3466346637333963333031663964313932353231666638370a303365643032356662386364663038
-          33373664353433313563393038306438323466663063643632343834613761366236356631383130
-          3834383430343835370a633231616466343863373366663464613763343563363631616532303663
-          35323662383862353261373062323236313964316237386137666564613434306436313362646631
-          3261303636323430356336643336656665613835373737616336
+        oauth2_proxy_cookie_secret: 'OAUTH_Cookie#kL7$mN4vR9@bP5&xQ8wY3'
         oauth2_proxy_whitelist_domains: "['.{{ internet_host }}']"
         oauth2_proxy_cookie_domains: "['.{{ internet_host }}']"
         oauth2_proxy_provider: '{{ homelab_oidc_provider }}'
