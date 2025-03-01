@@ -45,6 +45,42 @@ This repository provides an Ansible-based infrastructure configuration and deplo
   - Roles like `wazuh_indexer` and `wazuh_agent` manage deployments, certificates, and ensure continuous observation.  
   - Additional security roles exist for tasks like Podman networking, firewall rules, or bootstrapping Keycloak for identity management.
 
+## Wazuh Deployment Options
+
+The repository supports two Wazuh deployment configurations:
+
+### 1. Single Node Deployment
+- Simple setup with one Wazuh manager instance
+- Configuration in `inventory/production/host-single-wazuh.yml`
+- Deploy using:
+  ```bash
+  ansible-playbook -i inventory/production/host-single-wazuh.yml playbooks/wazuh_deploy.yml
+  ```
+
+### 2. Cluster Deployment
+- Distributed setup with master and worker nodes
+- Configuration in `inventory/production/hosts_cluster.yml`
+- Features:
+  - One master node
+  - Multiple worker nodes
+  - Automatic cluster synchronization
+  - Load balancing capabilities
+- Deploy using:
+  ```bash
+  ansible-playbook -i inventory/production/hosts_cluster.yml playbooks/wazuh_deploy.yml
+  ```
+
+### Configuration Files
+- `wazuh_deploy.yml`: Main playbook that detects deployment type
+- `wazuh_manager_simple.yml`: Single node configuration
+- `wazuh_cluster.yml`: Cluster configuration with master-worker setup
+
+### Requirements
+- Generate a unique 32-character cluster key for cluster deployment
+- Ensure proper network connectivity between nodes
+- Set up correct DNS resolution or hosts file entries
+- Configure firewall rules for inter-node communication (ports 1515, 1516)
+
 ## Customization
 
 All roles and variables can be customized by altering .yml files in `roles/` or adjusting top-level playbooks in `playbooks/`. The modular structure makes it straightforward to extend or modify.
