@@ -4,13 +4,14 @@ all:
     wazuh_cluster:
       hosts:
         wazuh01:
-          ansible_host: 192.168.1.10
+          ansible_host: 13.232.248.45
+          ansible_user: rocky
+          ansible_python_interpreter: /usr/bin/python3
       vars:
-        wazuh_user: wazuh
-        wazuh_network: wazuh
-        wazuh_certs_dir: '/var/wazuh'
-        wazuh_cluster_key: "f5da3799275b6c9c27c2776815f48" # Generate your own 32-char key
         wazuh_master_node: "wazuh-master"
+        wazuh_cluster_key: "f5da3799275b6c9c27c2776815f48"
         wazuh_worker_nodes:
           - name: "wazuh-worker1"
           - name: "wazuh-worker2"
+        tz: "Asia/Kolkata"
+        wazuh_manager_version: "4.10.1"

@@ -1,80 +1,208 @@
 ---
-- name: Deploy Wazuh Cluster
+- name: Configure Wazuh Cluster
   hosts: wazuh_cluster
   vars:
-    wazuh_manager_version: '4.10.1'
+    # Base configuration
+    wazuh_worker_list: "{{ wazuh_worker_nodes | map(attribute='name') | list }}"
+    certs_base_dir: "/home/wazuh/certs"
+    generator_conf_dir: "/var/wazuh_generator"
+    config_dir: "/var/wazuh_manager"
+    wazuh_user: "wazuh"
+    wazuh_network: "wazuh"
+    auth_password: "WZ_Auth#kP9$mN5vR2@bL6&xQ8"
     
+    # Indexer configuration - use direct values instead of references
+    indexer_host: "wazuh.indexer"
+    indexer_port: "9200"
+    indexer_username: "admin"
+    indexer_password: "WZ_Idx#kN5$pL8vM2@bR6&xQ4wY9zT7"
+    api_username: "wazuh_api"
+    api_password: "WZ_Api#mP6$nK9vL3@bX7&rQ4wY8zT5"
+    
+    # Volume definitions
+    wazuh_volumes:
+      api_configuration: "wazuh_manager_api_conf"
+      etc: "wazuh_manager_etc"
+      logs: "wazuh_manager_logs"
+      queue: "wazuh_manager_queue"
+      var_multigroups: "wazuh_manager_var_multigroups"
+      integrations: "wazuh_manager_integrations"
+      active_response: "wazuh_manager_active_response"
+      agentless: "wazuh_manager_agentless"
+      wodles: "wazuh_manager_wodles"
+      filebeat_etc: "wazuh_manager_filebeat_etc"
+      filebeat_var: "wazuh_manager_filebeat_var"
+
   tasks:
-    - name: Ensure wazuh network exists
+    - name: Install podman and dependencies
+      become: true
+      ansible.builtin.package:
+        name: 
+          - podman
+          - python3-pip
+        state: present
+        update_cache: true
+
+    - name: Create wazuh user
+      become: true
+      ansible.builtin.user:
+        name: wazuh
+        shell: /bin/bash
+        create_home: true
+        system: true
+
+    - name: Configure subuid and subgid for wazuh user
+      become: true
+      ansible.builtin.blockinfile:
+        path: "{{ item.path }}"
+        block: "{{ item.content }}"
+        create: true
+        mode: '0644'
+      loop:
+        - path: /etc/subuid
+          content: "wazuh:100000:65536"
+        - path: /etc/subgid
+          content: "wazuh:100000:65536"
+
+    - name: Run podman system migrate
+      become: true
+      become_user: wazuh
+      ansible.builtin.command: podman system migrate
+      changed_when: false
+
+    - name: Ensure wazuh user has proper permissions
+      become: true
+      ansible.builtin.file:
+        path: "/home/wazuh"
+        owner: wazuh
+        group: wazuh
+        mode: '0750'
+        state: directory
+
+    # Enable lingering for rootless containers
+    - name: Ensure lingering is enabled for wazuh user
+      become: true
+      ansible.builtin.command: "loginctl enable-linger wazuh"
+      changed_when: false
+
+    - name: Create certificates directory
+      become: true
+      ansible.builtin.file:
+        path: "{{ certs_base_dir }}"
+        state: directory
+        owner: wazuh
+        group: wazuh
+        mode: '0750'
+
+    - name: Create generator config directory
+      become: true
+      ansible.builtin.file:
+        path: "{{ generator_conf_dir }}"
+        state: directory
+        owner: wazuh
+        group: wazuh
+        mode: '0750'
+
+    - name: Create manager config directory
+      become: true
+      ansible.builtin.file:
+        path: "{{ config_dir }}"
+        state: directory
+        owner: wazuh
+        group: wazuh
+        mode: '0750'
+
+    - name: Ensure Wazuh network exists
+      become: true
+      become_user: wazuh
       ansible.builtin.import_role:
         name: podman
         tasks_from: network
       vars:
-        podman_network: '{{ wazuh_network }}'
-        podman_user: '{{ wazuh_user }}'
+        podman_network: "{{ wazuh_network }}"
+        podman_user: "{{ wazuh_user }}"
+        podman_bind_mount: "{{ certs_base_dir }}"
+        podman_bind_mount_conf: "{{ generator_conf_dir }}"
 
-    - name: Deploy Wazuh master node
+    - name: Generate Wazuh certificates
+      ansible.builtin.import_role:
+        name: wazuh_indexer
+        tasks_from: generate_certs
+      vars:
+        wazuh_indexer_user: "{{ wazuh_user }}"
+        wazuh_indexer_group: "{{ wazuh_user }}"
+        wazuh_indexer_tls_dir: "{{ certs_base_dir }}"
+        wazuh_indexer_tls_conf_dir: "{{ generator_conf_dir }}"
+        wazuh_indexer_host: "wazuh.indexer"
+        wazuh_indexer_manager_host: "{{ wazuh_master_node }}"
+        wazuh_indexer_dashboard_host: "wazuh.dashboard"
+        wazuh_manager_nodes: "{{ [wazuh_master_node] + wazuh_worker_list }}"
+
+    - name: Check Wazuh Manager service status
+      become: true
+      become_user: wazuh
+      ansible.builtin.command: systemctl --user status wazuh_master.service
+      register: service_status
+      failed_when: false
+      changed_when: false
+
+    - name: Display service status
+      ansible.builtin.debug:
+        var: service_status.stdout_lines
+
+    - name: Check journal logs
+      become: true
+      become_user: wazuh
+      ansible.builtin.command: journalctl --user -xeu wazuh_master.service
+      register: journal_logs
+      failed_when: false
+      changed_when: false
+
+    - name: Display journal logs
+      ansible.builtin.debug:
+        var: journal_logs.stdout_lines
+
+    - name: Deploy Wazuh Master
       ansible.builtin.import_role:
         name: wazuh_manager
       vars:
-        wazuh_manager_user: '{{ wazuh_user }}'
-        wazuh_manager_container: 'wazuh-master'
-        wazuh_manager_network: '{{ wazuh_network }}'
-        wazuh_manager_hostname: '{{ wazuh_master_node }}'
-        wazuh_manager_version: '{{ wazuh_manager_version }}'
-        wazuh_manager_api_configuration_vol: 'wazuh_master_conf'
-        wazuh_manager_etc_vol: 'wazuh_master_etc'
-        wazuh_manager_logs_vol: 'wazuh_master_logs'
-        wazuh_manager_queue_vol: 'wazuh_master_queue'
-        wazuh_manager_var_multigroups_vol: 'wazuh_master_var_multigroups'
-        wazuh_manager_active_response_vol: 'wazuh_master_active_response'
-        wazuh_manager_agentless_vol: 'wazuh_master_agentless'
-        wazuh_manager_wodles_vol: 'wazuh_master_wodles'
-        wazuh_manager_ssl_certs_dir: '{{ wazuh_certs_dir }}'
-        wazuh_manager_config_dir: '/var/wazuh_master'
-        wazuh_manager_cluster_config:
-          name: wazuh-cluster
-          node_name: master
-          node_type: master
-          key: "{{ wazuh_cluster_key }}"
-          port: 1516
-          bind_addr: 0.0.0.0
-          nodes:
-            - "{{ wazuh_master_node }}"
-            "{% for worker in wazuh_worker_nodes %}"
-            - "{{ worker.name }}"
-            "{% endfor %}"
-          hidden: 'no'
-          disabled: 'no'
+        wazuh_manager_user: "{{ wazuh_user }}"
+        wazuh_manager_container: "wazuh_master"
+        wazuh_manager_network: "{{ wazuh_network }}"
+        wazuh_manager_hostname: "{{ wazuh_master_node }}"
+        wazuh_manager_cluster_key: "{{ wazuh_cluster_key }}"
+        wazuh_manager_cluster_node_name: "{{ wazuh_master_node }}"
+        wazuh_manager_cluster_node_type: "master"
+        wazuh_manager_ssl_certs_dir: "{{ certs_base_dir }}"
+        wazuh_manager_config_dir: "{{ config_dir }}"
+        wazuh_manager_authd_password: "{{ auth_password }}"
+        wazuh_manager_indexer_host: "{{ indexer_host }}"
+        wazuh_manager_indexer_port: "{{ indexer_port }}"
+        wazuh_manager_indexer_username: "{{ indexer_username }}"
+        wazuh_manager_indexer_password: "{{ indexer_password }}"
+        wazuh_manager_api_username: "{{ api_username }}"
+        wazuh_manager_api_password: "{{ api_password }}"
+        wazuh_manager_api_configuration_vol: "{{ wazuh_volumes.api_configuration }}"
+        wazuh_manager_etc_vol: "{{ wazuh_volumes.etc }}"
+        wazuh_manager_logs_vol: "{{ wazuh_volumes.logs }}"
+        wazuh_manager_queue_vol: "{{ wazuh_volumes.queue }}"
+        wazuh_manager_var_multigroups_vol: "{{ wazuh_volumes.var_multigroups }}"
+        wazuh_manager_integrations_vol: "{{ wazuh_volumes.integrations }}"
+        wazuh_manager_active_response_vol: "{{ wazuh_volumes.active_response }}"
+        wazuh_manager_agentless_vol: "{{ wazuh_volumes.agentless }}"
+        wazuh_manager_wodles_vol: "{{ wazuh_volumes.wodles }}"
+        wazuh_manager_filebeat_etc_vol: "{{ wazuh_volumes.filebeat_etc }}"
+        wazuh_manager_filebeat_var_vol: "{{ wazuh_volumes.filebeat_var }}"
+        wazuh_manager_cluster_nodes:
+          master: "{{ wazuh_master_node }}"
+          workers: "{{ wazuh_worker_list }}"
 
-    - name: Deploy Wazuh worker nodes
-      ansible.builtin.import_role:
-        name: wazuh_manager
-      vars:
-        wazuh_manager_user: '{{ wazuh_user }}'
-        wazuh_manager_container: 'wazuh-worker{{ item.0 + 1 }}'
-        wazuh_manager_network: '{{ wazuh_network }}'
-        wazuh_manager_hostname: '{{ item.1.name }}'
-        wazuh_manager_version: '{{ wazuh_manager_version }}'
-        wazuh_manager_api_configuration_vol: 'wazuh_worker{{ item.0 + 1 }}_conf'
-        wazuh_manager_etc_vol: 'wazuh_worker{{ item.0 + 1 }}_etc'
-        wazuh_manager_logs_vol: 'wazuh_worker{{ item.0 + 1 }}_logs'
-        wazuh_manager_queue_vol: 'wazuh_worker{{ item.0 + 1 }}_queue'
-        wazuh_manager_var_multigroups_vol: 'wazuh_worker{{ item.0 + 1 }}_var_multigroups'
-        wazuh_manager_active_response_vol: 'wazuh_worker{{ item.0 + 1 }}_active_response'
-        wazuh_manager_agentless_vol: 'wazuh_worker{{ item.0 + 1 }}_agentless'
-        wazuh_manager_wodles_vol: 'wazuh_worker{{ item.0 + 1 }}_wodles'
-        wazuh_manager_ssl_certs_dir: '{{ wazuh_certs_dir }}'
-        wazuh_manager_config_dir: '/var/wazuh_worker{{ item.0 + 1 }}'
-        wazuh_manager_cluster_config:
-          name: wazuh-cluster
-          node_name: "worker{{ item.0 + 1 }}"
-          node_type: worker
-          key: "{{ wazuh_cluster_key }}"
-          port: 1516
-          bind_addr: 0.0.0.0
-          nodes:
-            - "{{ wazuh_master_node }}"
-          hidden: 'no'
-          disabled: 'no'
-      loop: "{{ wazuh_worker_nodes | enumerate }}"
+    - name: Pull Wazuh certificate generator image
+      become: true
+      become_user: wazuh
+      ansible.builtin.command: podman pull docker.io/wazuh/wazuh-certs-generator:0.0.2
+      register: pull_result
+      changed_when: pull_result.rc == 0
+      failed_when: pull_result.rc != 0
+      retries: 3
+      delay: 5

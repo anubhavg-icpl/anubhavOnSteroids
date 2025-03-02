@@ -1,0 +1,2 @@
+---
+wazuh_manager_version: "{{ wazuh_version | default('4.10.1') }}"

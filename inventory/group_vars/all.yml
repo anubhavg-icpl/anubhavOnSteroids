@@ -1,10 +1,16 @@
 # General Ansible stuff
-ansible_user: ansible
-tz: 'America/Bogota'
+ansible_user: rocky
+ansible_ssh_private_key_file: ~/.ssh/deepanjali.pem
+ansible_python_interpreter: /usr/bin/python3
+
+tz: 'Asia/Kolkata'
+
+# Wazuh specific variables
+wazuh_version: "4.10.1"
 
 # Public internet hosts
 
-public_ip: '192.168.1.100'
+public_ip: '65.1.148.47'
 internet_host: 'example.anubhavg.local'
 
 auth_host: auth
@@ -86,7 +92,8 @@ lan_prefix: 'lan'
 # SIEM
 
 siem_host: '10.0.0.10'
-siem_enrollment_pass: 'SIEM_Enroll#kM9$pL5vR2@bN6&xJ4mQ8'
+wazuh_auth_password: 'WZ_Auth#kP9$mN5vR2@bL6&xQ8'
+siem_enrollment_pass: "{{ wazuh_auth_password }}"
 
 # OIDC
 
